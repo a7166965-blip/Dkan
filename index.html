@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>دكان ابو برهم</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Cairo',sans-serif;background:#f5f0e8}
+
+nav{position:fixed;top:0;left:0;right:0;display:flex;z-index:999}
+nav button{flex:1;padding:12px;border:none;background:#111;color:#fff;font-weight:700}
+
+.screen{display:none;padding-top:60px}
+.screen.on{display:block}
+
+.card{background:#fff;margin:15px;padding:15px;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.1)}
+
+input,textarea{width:100%;padding:10px;margin:8px 0;border:1px solid #ddd;border-radius:8px}
+
+.btn{width:100%;padding:12px;border:none;border-radius:10px;font-weight:700;cursor:pointer}
+.btn-green{background:#1a6b3a;color:#fff}
+
+.order{border-bottom:1px solid #eee;padding:10px}
+
+.toast{
+position:fixed;bottom:20px;left:50%;
+transform:translateX(-50%);
+background:#111;color:#fff;
+padding:10px 20px;border-radius:20px;
+display:none;
+}
+.toast.show{display:block}
+</style>
+</head>
+
+<body>
+
+<nav>
+<button onclick="go('customer')">🛒 الزبون</button>
+<button onclick="go('pin')">🔐 المستقبل</button>
+</nav>
+
+<!-- CUSTOMER -->
+<div class="screen on" id="scr-customer">
+<div class="card">
+<h3>دكان ابو برهم</h3>
+
+<label>اسمك</label>
+<input id="name">
+
+<label>طلبك</label>
+<textarea id="items"></textarea>
+
+<button class="btn btn-green" onclick="sendOrder()">إرسال الطلب</button>
+</div>
+</div>
+
+<!-- PIN -->
+<div class="screen" id="scr-pin">
+<div class="card">
+<h3>دخول المستقبل</h3>
+<input id="pin" placeholder="PIN">
+<button class="btn" onclick="checkPin()">دخول</button>
+<p id="err"></p>
+</div>
+</div>
+
+<!-- ADMIN -->
+<div class="screen" id="scr-admin">
+<div class="card">
+<h3>الطلبات</h3>
+<div id="orders"></div>
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import {
+getFirestore,
+collection,
+addDoc,
+onSnapshot,
+query,
+orderBy
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+apiKey: "YOUR_API_KEY",
+authDomain: "YOUR_AUTH_DOMAIN",
+projectId: "YOUR_PROJECT_ID",
+storageBucket: "YOUR_STORAGE_BUCKET",
+messagingSenderId: "YOUR_SENDER_ID",
+appId: "YOUR_APP_ID"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const col = collection(db,"orders");
+
+const PIN = "1122";
+
+window.go = (s)=>{
+document.querySelectorAll(".screen").forEach(e=>e.classList.remove("on"));
+document.getElementById("scr-"+s).classList.add("on");
+if(s==="admin") listen();
+};
+
+window.sendOrder = async ()=>{
+let name = document.getElementById("name").value.trim();
+let items = document.getElementById("items").value.trim();
+
+if(!name || !items){
+toast("كمل البيانات");
+return;
+}
+
+await addDoc(col,{
+name,
+items,
+status:"pending",
+createdAt:Date.now()
+});
+
+document.getElementById("items").value="";
+toast("تم إرسال الطلب");
+};
+
+window.checkPin = ()=>{
+if(document.getElementById("pin").value === PIN){
+go("admin");
+}else{
+document.getElementById("err").innerText="خطأ في الرمز";
+}
+};
+
+function listen(){
+const q = query(col, orderBy("createdAt","desc"));
+
+onSnapshot(q,(snap)=>{
+document.getElementById("orders").innerHTML =
+snap.docs.map(d=>{
+const o = d.data();
+return `
+<div class="order">
+<b>${o.name}</b><br>
+${o.items}
+</div>
+`;
+}).join("");
+});
+}
+
+function toast(t){
+let el=document.getElementById("toast");
+el.innerText=t;
+el.classList.add("show");
+setTimeout(()=>el.classList.remove("show"),2000);
+}
+</script>
+
+</body>
+</html>
